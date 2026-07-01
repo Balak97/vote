@@ -1,0 +1,62 @@
+# --- Environnement & secrets ---
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.o2switch.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Backend (données locales) ---
+backend/walata_vote.db
+backend/walata_vote.db-*
+backend/stderr.log
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# --- Node / Frontend ---
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+
+# --- Logs ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- IDE / éditeurs ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# --- Archives déploiement ---
+*.zip
+*.tar.gz
