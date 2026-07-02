@@ -21,7 +21,7 @@ Uploadez **tout le dossier `backend/`** dans `/api.vote.cantic-mali.com/`, **san
 
 - `.venv/`
 - `__pycache__/`
-- `walata_vote.db` (sera créée au premier démarrage)
+- `walata_vote.db` (SQLite locale uniquement)
 - `*.pyc`
 
 Structure attendue sur le serveur :
@@ -41,17 +41,58 @@ Structure attendue sur le serveur :
 
 ---
 
-## 3. Fichier `.env` sur le serveur
+## 3. Base MySQL (cPanel)
 
-Copiez `.env.o2switch.example` → `.env` et modifiez :
+1. **cPanel** → **Bases de données MySQL**
+2. **Créer une base** : ex. `walata` → nom complet `qomo3546_walata`
+3. **Créer un utilisateur** : ex. `walata_user` → `qomo3546_walata_user` + mot de passe fort
+4. **Ajouter l'utilisateur à la base** → cocher **TOUS LES PRIVILÈGES**
+5. Notez : hôte **`localhost`**, noms **préfixés** par votre login cPanel
 
-- `VOTRE_USER` → votre login cPanel (visible en haut à droite de cPanel)
-- `SECRET_KEY` → clé longue aléatoire
-- `ADMIN_PASSWORD` → mot de passe admin fort
+Les tables sont créées automatiquement au premier démarrage de l'API (`init_db`).
 
 ---
 
-## 4. Setup Python App (cPanel)
+## 4. Fichier `.env` sur le serveur
+
+Copiez `.env.o2switch.example` → `.env` et modifiez :
+
+- `VOTRE_USER` → votre login cPanel (ex. `qomo3546`)
+- `SECRET_KEY` → clé longue aléatoire
+- `ADMIN_PASSWORD` → mot de passe admin fort
+- `DATABASE_URL` → connexion MySQL, ex. :
+
+```env
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=qomo3546_vote
+DB_USER=qomo3546_Balako
+DB_PASSWORD=votre-mot-de-passe
+CORS_ORIGINS=["https://vote.cantic-mali.com"]
+UPLOAD_DIR=/home/qomo3546/api.vote.cantic-mali.com/uploads
+```
+
+Les variables `DB_*` construisent automatiquement l'URL (mots de passe avec `@`, `#`, etc. acceptés tels quels).
+Utilisez `localhost` pour `DB_HOST` (pas `https://127.0.0.1`).
+
+### Email OTP
+
+```env
+OTP_DEV_MODE=false
+EMAIL_HOST=mail.cantic-mali.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=true
+EMAIL_USE_SSL=false
+EMAIL_HOST_USER=techconceptde@cantic-mali.com
+EMAIL_HOST_PASSWORD=votre-mot-de-passe
+DEFAULT_FROM_EMAIL=techconceptde@cantic-mali.com
+```
+
+Avec `OTP_DEV_MODE=false` et ces variables, le code OTP est envoyé par email (plus affiché à l'écran).
+
+---
+
+## 5. Setup Python App (cPanel)
 
 1. **cPanel** → **Setup Python App** (ou **Application Python**)
 2. **Create Application** :
@@ -69,9 +110,9 @@ Copiez `.env.o2switch.example` → `.env` et modifiez :
 
 ---
 
-## 5. Permissions
+## 6. Permissions
 
-Le dossier doit être **inscriptible** pour SQLite et les photos :
+Le dossier doit être **inscriptible** pour les photos :
 
 ```bash
 chmod 755 /home/VOTRE_USER/api.vote.cantic-mali.com
@@ -82,7 +123,7 @@ chmod 775 /home/VOTRE_USER/api.vote.cantic-mali.com/uploads
 
 ---
 
-## 6. Tests
+## 7. Tests
 
 | URL | Résultat attendu |
 |-----|------------------|
@@ -91,16 +132,17 @@ chmod 775 /home/VOTRE_USER/api.vote.cantic-mali.com/uploads
 
 ---
 
-## 7. En cas d'erreur
+## 8. En cas d'erreur
 
 - Logs : `/home/VOTRE_USER/api.vote.cantic-mali.com/stderr.log`
-- Vérifier que `passenger_wsgi.py` est à la racine de Application root
-- Vérifier que `pip install` a bien installé `a2wsgi`
+- Vérifier que `pip install` a installé `a2wsgi` et `aiomysql`
+- Vérifier `DATABASE_URL` (utilisateur, mot de passe, noms préfixés cPanel)
+- Tester la connexion MySQL dans cPanel → **phpMyAdmin**
 - Redémarrer l'app Python dans cPanel
 
 ---
 
-## 8. Ensuite (frontend)
+## 9. Ensuite (frontend)
 
 Quand l'API répond sur `/health`, builder le frontend :
 

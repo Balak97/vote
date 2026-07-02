@@ -13,7 +13,7 @@ from app.infrastructure.database.repositories import (
 )
 from app.infrastructure.database.session import get_session
 from app.infrastructure.excel.importer import ExcelVoterImporter
-from app.infrastructure.notifications.dev_service import DevNotificationService
+from app.infrastructure.notifications.factory import get_notification_service
 from app.services import (
     AuthService,
     CandidateService,
@@ -49,7 +49,7 @@ def get_auth_service(
     voter_repo: Annotated[SqlAlchemyVoterRepository, Depends(get_voter_repo)],
     otp_repo: Annotated[SqlAlchemyOtpRepository, Depends(get_otp_repo)],
 ) -> AuthService:
-    return AuthService(voter_repo, otp_repo, DevNotificationService())
+    return AuthService(voter_repo, otp_repo, get_notification_service())
 
 
 def get_voter_import_service(

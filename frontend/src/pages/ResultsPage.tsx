@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import Alert from "../components/Alert";
 import CandidatePhoto from "../components/CandidatePhoto";
 import PageHero from "../components/PageHero";
-import ElectionTimer from "../components/ElectionTimer";
 import { api, Candidate } from "../api/client";
 import { isUniqueVoteLeader } from "../utils/votes";
 

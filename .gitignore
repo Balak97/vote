@@ -60,3 +60,4 @@ Desktop.ini
 # --- Archives déploiement ---
 *.zip
 *.tar.gz
+.env.o2switch.example

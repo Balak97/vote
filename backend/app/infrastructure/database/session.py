@@ -1,18 +1,29 @@
 from collections.abc import AsyncGenerator
 
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import settings
 from app.infrastructure.database.models import Base
 
-engine = create_async_engine(settings.database_url, echo=False)
+
+def _engine_kwargs() -> dict:
+    kwargs: dict = {"echo": False}
+    if settings.database_url.startswith("mysql"):
+        kwargs["pool_pre_ping"] = True
+        kwargs["pool_recycle"] = 3600
+    return kwargs
+
+
+engine = create_async_engine(settings.database_url, **_engine_kwargs())
 SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 def _migrate_schema(sync_conn) -> None:
-    columns = sync_conn.execute(text("PRAGMA table_info(candidates)")).fetchall()
-    column_names = {row[1] for row in columns}
+    inspector = inspect(sync_conn)
+    if not inspector.has_table("candidates"):
+        return
+    column_names = {col["name"] for col in inspector.get_columns("candidates")}
     if "photo_url" not in column_names:
         sync_conn.execute(text("ALTER TABLE candidates ADD COLUMN photo_url VARCHAR(512)"))
 

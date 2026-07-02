@@ -83,6 +83,9 @@ async def request_otp(
     except ValueError as exc:
         await session.rollback()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @router.post("/otp/verify", response_model=TokenResponse)
