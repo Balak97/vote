@@ -1,22 +1,7 @@
-const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
-const WALATA_BACKEND_PORT = import.meta.env.VITE_BACKEND_PORT ?? "8001";
+import { formatHttpError, getErrorMessage, parseErrorResponse } from "../utils/errors";
+import { getApiBase } from "../utils/apiBase";
 
-function formatApiError(status: number, payload: unknown): string {
-  const detail =
-    typeof payload === "object" && payload !== null && "detail" in payload
-      ? String((payload as { detail: unknown }).detail)
-      : "";
-
-  if (status === 404 && detail === "Not Found") {
-    return `Backend Walata Vote introuvable sur le port ${WALATA_BACKEND_PORT}. Lancez : cd backend puis uvicorn app.main:app --reload --port ${WALATA_BACKEND_PORT}`;
-  }
-
-  if (status === 502 || status === 503) {
-    return `Impossible de joindre le backend (port ${WALATA_BACKEND_PORT}). Vérifiez qu'il est démarré.`;
-  }
-
-  return detail || "Erreur API";
-}
+const API_BASE = getApiBase();
 
 export type TokenResponse = { access_token: string; token_type: string };
 
@@ -37,6 +22,7 @@ export type Election = {
   status: string;
   starts_at: string | null;
   ends_at: string | null;
+  results_published?: boolean;
 };
 
 export type Candidate = {
@@ -99,15 +85,31 @@ async function request<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Erreur réseau" }));
-    throw new Error(formatApiError(response.status, error));
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
   }
+
+  if (!response.ok) {
+    const payload = await parseErrorResponse(response);
+    throw new Error(formatHttpError(response.status, payload));
+  }
+
   if (response.status === 204) {
     return undefined as T;
   }
-  return response.json();
+
+  try {
+    return await response.json();
+  } catch {
+    throw new Error(
+      response.headers.get("content-type")?.includes("text/html")
+        ? "Le proxy API ne répond pas (page HTML reçue). Vérifiez que api-proxy.php et .htaccess sont bien uploadés sur vote.cantic-mali.com."
+        : "Réponse du serveur illisible. Réessayez.",
+    );
+  }
 }
 
 export const api = {
@@ -163,6 +165,12 @@ export const api = {
 
   closeElection: (id: number, token: string) =>
     request<Election>(`/admin/elections/${id}/close`, { method: "POST" }, token),
+
+  publishElectionResults: (id: number, published: boolean, token: string) =>
+    request<Election>(`/admin/elections/${id}/publish-results`, {
+      method: "POST",
+      body: JSON.stringify({ published }),
+    }, token),
 
   createCandidate: (
     data: {

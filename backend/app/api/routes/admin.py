@@ -18,6 +18,7 @@ from app.api.schemas import (
     ElectionResponse,
     ElectionUpdateRequest,
     ImportResultResponse,
+    PublishResultsRequest,
     TokenResponse,
     VoterResponse,
 )
@@ -39,6 +40,7 @@ def _to_election_response(election) -> ElectionResponse:
         status=election.status.value,
         starts_at=election.starts_at,
         ends_at=election.ends_at,
+        results_published=election.results_published,
     )
 
 
@@ -172,6 +174,23 @@ async def close_election(
         await session.rollback()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    return _to_election_response(election)
+
+
+@router.post("/elections/{election_id}/publish-results", response_model=ElectionResponse)
+async def publish_election_results(
+    election_id: int,
+    body: PublishResultsRequest,
+    _: Annotated[str, Depends(get_current_admin)],
+    election_service: Annotated[ElectionService, Depends(get_election_service)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ElectionResponse:
+    try:
+        election = await election_service.set_results_published(election_id, body.published)
+        await session.commit()
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return _to_election_response(election)
 
 

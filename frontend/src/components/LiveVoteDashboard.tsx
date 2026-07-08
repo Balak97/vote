@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getErrorMessage } from "../utils/errors";
 import { Link } from "react-router-dom";
 import { api, CandidateLiveStats, ElectionLiveDashboard, VoterParticipationStats } from "../api/client";
 import CandidatePhoto from "./CandidatePhoto";
@@ -92,7 +93,9 @@ function DashboardBlock({ dashboard, animate }: DashboardBlockProps) {
             <p className="live-dashboard__election-desc">{dashboard.description}</p>
           )}
         </div>
-        <span className="badge active">En direct</span>
+        <span className={`badge ${dashboard.status === "active" ? "active" : "closed"}`}>
+          {dashboard.status === "active" ? "En direct" : "Clôturé"}
+        </span>
       </div>
 
       <ElectionTimer
@@ -169,7 +172,7 @@ export default function LiveVoteDashboard() {
         setTimeout(() => setAnimate(false), 600);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Impossible de charger les données");
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -209,10 +212,13 @@ export default function LiveVoteDashboard() {
         <div className="card live-dashboard__empty">
           <div className="empty-state">
             <div className="empty-state__icon">🗳️</div>
-            <h3>Aucun scrutin en cours</h3>
-            <p>Les candidats et le graphique des votes apparaîtront ici dès qu&apos;une élection sera ouverte.</p>
-            <Link to="/vote" className="btn accent" style={{ marginTop: "1rem" }}>
-              Aller voter
+            <h3>Aucun résultat publié</h3>
+            <p>
+              L&apos;administrateur doit cocher « Afficher les résultats au public » sur une élection
+              pour que les chiffres apparaissent ici.
+            </p>
+            <Link to="/results" className="btn btn--ghost" style={{ marginTop: "1rem" }}>
+              Page des résultats
             </Link>
           </div>
         </div>

@@ -62,6 +62,17 @@ async def _build_results_response(
     )
 
 
+async def _resolve_display_election_id(election_service: ElectionService) -> int | None:
+    published = await election_service.get_published_election()
+    return published.id if published else None
+
+
+async def _ensure_results_are_public(election_service: ElectionService, election_id: int) -> None:
+    published = await election_service.get_published_election()
+    if not published or published.id != election_id:
+        raise HTTPException(status_code=404, detail="Aucun résultat publié pour cette élection")
+
+
 @router.post("/otp/request", response_model=OtpSentResponse)
 async def request_otp(
     body: OtpRequest,
@@ -144,6 +155,7 @@ async def list_active_elections(
             status=e.status.value,
             starts_at=e.starts_at,
             ends_at=e.ends_at,
+            results_published=e.results_published,
         )
         for e in active
     ]
@@ -184,12 +196,11 @@ async def get_current_election_results(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ResultsResponse:
     await _close_expired_elections(election_service, session)
-    elections = await election_service.list_all()
-    active = [e for e in elections if e.status == ElectionStatus.ACTIVE]
-    if not active:
-        raise HTTPException(status_code=404, detail="Aucune élection en cours")
+    election_id = await _resolve_display_election_id(election_service)
+    if election_id is None:
+        raise HTTPException(status_code=404, detail="Aucun résultat disponible")
     try:
-        return await _build_results_response(active[0].id, vote_service, candidate_service, election_service)
+        return await _build_results_response(election_id, vote_service, candidate_service, election_service)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -201,6 +212,7 @@ async def get_results(
     candidate_service: Annotated[CandidateService, Depends(get_candidate_service)],
     election_service: Annotated[ElectionService, Depends(get_election_service)],
 ) -> ResultsResponse:
+    await _ensure_results_are_public(election_service, election_id)
     try:
         return await _build_results_response(election_id, vote_service, candidate_service, election_service)
     except ValueError as exc:

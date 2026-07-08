@@ -1,13 +1,36 @@
-import { NavLink } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import {
+  ADMIN_AUTH_EVENT,
+  clearAdminSession,
+  isAdminLoggedIn,
+} from "../utils/adminAuth";
 
 const links = [
   { to: "/", label: "Accueil", end: true },
   { to: "/vote", label: "Voter" },
   { to: "/results", label: "Résultats" },
-  { to: "/admin", label: "Administration" },
 ];
 
 export default function Header() {
+  const location = useLocation();
+  const [adminLoggedIn, setAdminLoggedIn] = useState(isAdminLoggedIn);
+  const onAdminPage = location.pathname.startsWith("/admin");
+
+  useEffect(() => {
+    function syncAdminSession() {
+      setAdminLoggedIn(isAdminLoggedIn());
+    }
+    syncAdminSession();
+    window.addEventListener(ADMIN_AUTH_EVENT, syncAdminSession);
+    return () => window.removeEventListener(ADMIN_AUTH_EVENT, syncAdminSession);
+  }, [location.pathname]);
+
+  function handleAdminLogout() {
+    clearAdminSession();
+    setAdminLoggedIn(false);
+  }
+
   return (
     <header className="site-header">
       <div className="site-header__inner">
@@ -41,6 +64,15 @@ export default function Header() {
               {label}
             </NavLink>
           ))}
+          {onAdminPage && adminLoggedIn && (
+            <button
+              type="button"
+              className="main-nav__logout"
+              onClick={handleAdminLogout}
+            >
+              Se déconnecter
+            </button>
+          )}
         </nav>
       </div>
     </header>

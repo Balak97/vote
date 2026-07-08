@@ -21,11 +21,16 @@ SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=
 
 def _migrate_schema(sync_conn) -> None:
     inspector = inspect(sync_conn)
-    if not inspector.has_table("candidates"):
-        return
-    column_names = {col["name"] for col in inspector.get_columns("candidates")}
-    if "photo_url" not in column_names:
-        sync_conn.execute(text("ALTER TABLE candidates ADD COLUMN photo_url VARCHAR(512)"))
+    if inspector.has_table("candidates"):
+        column_names = {col["name"] for col in inspector.get_columns("candidates")}
+        if "photo_url" not in column_names:
+            sync_conn.execute(text("ALTER TABLE candidates ADD COLUMN photo_url VARCHAR(512)"))
+    if inspector.has_table("elections"):
+        election_columns = {col["name"] for col in inspector.get_columns("elections")}
+        if "results_published" not in election_columns:
+            sync_conn.execute(
+                text("ALTER TABLE elections ADD COLUMN results_published BOOLEAN DEFAULT 0"),
+            )
 
 
 async def init_db() -> None:

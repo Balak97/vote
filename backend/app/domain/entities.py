@@ -39,6 +39,7 @@ class Election:
     status: ElectionStatus
     starts_at: datetime | None = None
     ends_at: datetime | None = None
+    results_published: bool = False
 
 
 @dataclass

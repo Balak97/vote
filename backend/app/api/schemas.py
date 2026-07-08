@@ -57,6 +57,10 @@ class ElectionUpdateRequest(BaseModel):
     ends_at: datetime | None = None
 
 
+class PublishResultsRequest(BaseModel):
+    published: bool = True
+
+
 class ElectionResponse(BaseModel):
     id: int
     title: str
@@ -64,6 +68,7 @@ class ElectionResponse(BaseModel):
     status: str
     starts_at: datetime | None
     ends_at: datetime | None
+    results_published: bool = False
 
 
 class CandidateCreateRequest(BaseModel):

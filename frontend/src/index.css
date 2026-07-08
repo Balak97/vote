@@ -1049,11 +1049,47 @@ button.btn--lg {
 
 .admin-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
   margin-bottom: 1.5rem;
+}
+
+.admin-header__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.admin-header__session {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-success);
+}
+
+.admin-header__logout {
+  white-space: nowrap;
+}
+
+.main-nav__logout {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-error);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.main-nav__logout:hover {
+  background: var(--color-error-bg);
+  border-color: var(--color-error);
 }
 
 .login-card {
@@ -1203,6 +1239,29 @@ tbody tr:hover {
 
 .election-item__schedule strong {
   color: var(--color-primary);
+}
+
+.election-item__publish {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.election-item__publish input {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+.election-item__publish-link {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
 }
 
 .election-timer {
@@ -1859,5 +1918,14 @@ tbody tr:hover {
   .admin-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .admin-header__actions {
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .admin-header__logout {
+    width: 100%;
   }
 }

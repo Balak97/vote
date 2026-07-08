@@ -4,6 +4,13 @@ import CandidatePhoto from "../components/CandidatePhoto";
 import PageHero from "../components/PageHero";
 import { api, Candidate, Election, Voter } from "../api/client";
 import {
+  ADMIN_AUTH_EVENT,
+  clearAdminSession,
+  isAdminLoggedIn,
+  notifyAdminAuthChange,
+} from "../utils/adminAuth";
+import { getErrorMessage } from "../utils/errors";
+import {
   defaultElectionEndsAt,
   defaultElectionStartsAt,
   formatDateTimeFr,
@@ -12,7 +19,9 @@ import {
 } from "../utils/datetime";
 
 export default function AdminPage() {
-  const [token, setToken] = useState<string | null>(localStorage.getItem("admin_token"));
+  const [token, setToken] = useState<string | null>(() =>
+    isAdminLoggedIn() ? localStorage.getItem("admin_token") : null,
+  );
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +53,14 @@ export default function AdminPage() {
     }
   }, [token]);
 
+  useEffect(() => {
+    function syncSession() {
+      setToken(isAdminLoggedIn() ? localStorage.getItem("admin_token") : null);
+    }
+    window.addEventListener(ADMIN_AUTH_EVENT, syncSession);
+    return () => window.removeEventListener(ADMIN_AUTH_EVENT, syncSession);
+  }, []);
+
   async function refreshData(authToken: string) {
     const [v, e] = await Promise.all([
       api.listVoters(authToken),
@@ -64,8 +81,9 @@ export default function AdminPage() {
       const res = await api.adminLogin(username, password);
       localStorage.setItem("admin_token", res.access_token);
       setToken(res.access_token);
+      notifyAdminAuthChange();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur");
+      setError(getErrorMessage(err));
     }
   }
 
@@ -78,7 +96,7 @@ export default function AdminPage() {
       setMessage(`${res.imported} électeur(s) importé(s). ${res.skipped.length} ignoré(s).`);
       await refreshData(token);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur");
+      setError(getErrorMessage(err));
     }
   }
 
@@ -101,7 +119,7 @@ export default function AdminPage() {
       await refreshData(token);
       setMessage("Élection créée avec succès.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur");
+      setError(getErrorMessage(err));
     }
   }
 
@@ -128,7 +146,7 @@ export default function AdminPage() {
       await refreshData(token);
       setMessage("Candidat ajouté.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur");
+      setError(getErrorMessage(err));
     }
   }
 
@@ -139,7 +157,7 @@ export default function AdminPage() {
       await refreshData(token);
       setMessage("Le vote est maintenant ouvert.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur");
+      setError(getErrorMessage(err));
     }
   }
 
@@ -148,9 +166,27 @@ export default function AdminPage() {
     try {
       await api.closeElection(id, token);
       await refreshData(token);
-      setMessage("Élection clôturée. Les résultats sont disponibles.");
+      setMessage(
+        `Élection clôturée. Cochez « Afficher les résultats au public » pour les rendre visibles sur /results.`,
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur");
+      setError(getErrorMessage(err));
+    }
+  }
+
+  async function handlePublishResults(electionId: number, published: boolean) {
+    if (!token) return;
+    setError(null);
+    try {
+      await api.publishElectionResults(electionId, published, token);
+      await refreshData(token);
+      setMessage(
+        published
+          ? "Les résultats de cette élection sont maintenant visibles par tous."
+          : "Les résultats ne sont plus affichés au public.",
+      );
+    } catch (err) {
+      setError(getErrorMessage(err));
     }
   }
 
@@ -189,7 +225,7 @@ export default function AdminPage() {
       await refreshData(token);
       setMessage("Élection mise à jour.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur");
+      setError(getErrorMessage(err));
     }
   }
 
@@ -201,7 +237,7 @@ export default function AdminPage() {
       await refreshData(token);
       setMessage("Photo mise à jour.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur");
+      setError(getErrorMessage(err));
     }
   }
 
@@ -216,8 +252,15 @@ export default function AdminPage() {
   }
 
   function logout() {
-    localStorage.removeItem("admin_token");
+    clearAdminSession();
     setToken(null);
+    setVoters([]);
+    setElections([]);
+    setCandidates([]);
+    setSelectedElection(null);
+    setEditingElectionId(null);
+    setError(null);
+    setMessage(null);
   }
 
   const votedCount = voters.filter((v) => v.has_voted).length;
@@ -272,7 +315,12 @@ export default function AdminPage() {
           title="Gestion du scrutin"
           subtitle="Importez les électeurs, configurez les candidats et pilotez le déroulement du vote."
         />
-        <button className="secondary" onClick={logout}>Déconnexion</button>
+        <div className="admin-header__actions">
+          <span className="admin-header__session">Session administrateur active</span>
+          <button type="button" className="secondary admin-header__logout" onClick={logout}>
+            Se déconnecter
+          </button>
+        </div>
       </div>
 
       {error && <Alert type="error">{error}</Alert>}
@@ -544,6 +592,23 @@ export default function AdminPage() {
                   <span>Ouverture : <strong>{formatDateTimeFr(e.starts_at)}</strong></span>
                   <span>Fermeture : <strong>{formatDateTimeFr(e.ends_at)}</strong></span>
                 </div>
+              )}
+              {e.status !== "draft" && (
+                <label className="election-item__publish">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(e.results_published)}
+                    onChange={(ev) => handlePublishResults(e.id, ev.target.checked)}
+                  />
+                  <span>
+                    Afficher les résultats au public
+                    {e.results_published && (
+                      <span className="election-item__publish-link">
+                        {" "}— <a href={`/results/${e.id}`} target="_blank" rel="noreferrer">Voir la page</a>
+                      </span>
+                    )}
+                  </span>
+                </label>
               )}
               <div className="btn-row">
                 {e.status !== "closed" && (

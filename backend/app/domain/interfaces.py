@@ -57,6 +57,12 @@ class IElectionRepository(ABC):
     @abstractmethod
     async def update(self, election: Election) -> Election: ...
 
+    @abstractmethod
+    async def get_published(self) -> Election | None: ...
+
+    @abstractmethod
+    async def set_results_published(self, election_id: int, published: bool) -> Election: ...
+
 
 class IVoteRepository(ABC):
     @abstractmethod

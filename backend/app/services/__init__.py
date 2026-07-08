@@ -212,6 +212,17 @@ class ElectionService:
     async def get(self, election_id: int) -> Election | None:
         return await self._election_repo.get_by_id(election_id)
 
+    async def get_published_election(self) -> Election | None:
+        return await self._election_repo.get_published()
+
+    async def set_results_published(self, election_id: int, published: bool) -> Election:
+        election = await self._election_repo.get_by_id(election_id)
+        if not election:
+            raise ValueError("Élection introuvable")
+        if election.status == ElectionStatus.DRAFT:
+            raise ValueError("Publiez d'abord l'élection (ouvrez ou clôturez le scrutin)")
+        return await self._election_repo.set_results_published(election_id, published)
+
 
 class AuthService:
     def __init__(
@@ -346,26 +357,30 @@ class VoteService:
 
     async def get_live_dashboard(self) -> dict:
         elections = await self._election_repo.list_all()
-        active = [e for e in elections if e.status == ElectionStatus.ACTIVE]
+        published = await self._election_repo.get_published()
         now = datetime.utcnow()
         dashboards: list[dict] = []
 
         total_electors = await self._voter_repo.count_active()
 
-        if active:
-            voted_count = 0
-            for election in active:
-                voted_count += await self._vote_repo.count_for_election(election.id)
+        if published:
+            voted_count = await self._vote_repo.count_for_election(published.id)
         else:
-            voters = await self._voter_repo.list_all()
-            voted_count = sum(1 for v in voters if v.is_active and v.has_voted)
+            active = [e for e in elections if e.status == ElectionStatus.ACTIVE]
+            if active:
+                voted_count = 0
+                for election in active:
+                    voted_count += await self._vote_repo.count_for_election(election.id)
+            else:
+                voters = await self._voter_repo.list_all()
+                voted_count = sum(1 for v in voters if v.is_active and v.has_voted)
 
         pending_count = max(total_electors - voted_count, 0)
         participation_rate = round((voted_count / total_electors * 100) if total_electors else 0.0, 1)
 
-        for election in active:
-            candidates = await self._candidate_repo.list_by_election(election.id)
-            counts = await self._vote_repo.count_by_candidate(election.id)
+        if published:
+            candidates = await self._candidate_repo.list_by_election(published.id)
+            counts = await self._vote_repo.count_by_candidate(published.id)
             total = sum(counts.values())
 
             candidate_stats = []
@@ -389,12 +404,12 @@ class VoteService:
 
             dashboards.append(
                 {
-                    "election_id": election.id,
-                    "title": election.title,
-                    "description": election.description,
-                    "status": election.status.value,
-                    "starts_at": election.starts_at,
-                    "ends_at": election.ends_at,
+                    "election_id": published.id,
+                    "title": published.title,
+                    "description": published.description,
+                    "status": published.status.value,
+                    "starts_at": published.starts_at,
+                    "ends_at": published.ends_at,
                     "total_votes": total,
                     "candidates": candidate_stats,
                     "updated_at": now,

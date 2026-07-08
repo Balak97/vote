@@ -9,8 +9,7 @@ import PageHero from "../components/PageHero";
 import StepProgress from "../components/StepProgress";
 
 import { api, Candidate, Election, Voter } from "../api/client";
-
-
+import { getErrorMessage } from "../utils/errors";
 
 type Step = "identify" | "otp" | "vote" | "done";
 
@@ -162,7 +161,7 @@ export default function VotePage() {
 
     } catch (err) {
 
-      setError(err instanceof Error ? err.message : "Erreur");
+      setError(getErrorMessage(err));
 
     } finally {
 
@@ -196,7 +195,7 @@ export default function VotePage() {
 
     } catch (err) {
 
-      setError(err instanceof Error ? err.message : "Erreur");
+      setError(getErrorMessage(err));
 
     } finally {
 
@@ -226,7 +225,7 @@ export default function VotePage() {
 
     } catch (err) {
 
-      setError(err instanceof Error ? err.message : "Erreur");
+      setError(getErrorMessage(err));
 
     } finally {
 

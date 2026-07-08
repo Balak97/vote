@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import Alert from "../components/Alert";
+import { getErrorMessage } from "../utils/errors";
 import CandidatePhoto from "../components/CandidatePhoto";
 import PageHero from "../components/PageHero";
 import { api, Candidate } from "../api/client";
@@ -14,22 +16,31 @@ type ElectionResults = {
 };
 
 export default function ResultsPage() {
+  const { electionId } = useParams<{ electionId?: string }>();
   const [data, setData] = useState<ElectionResults | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadCurrentResults();
-  }, []);
+    loadResults();
+  }, [electionId]);
 
-  async function loadCurrentResults() {
+  async function loadResults() {
     setError(null);
     setLoading(true);
     try {
-      const result = await api.getCurrentResults();
+      const parsedId = electionId ? Number(electionId) : NaN;
+      const result = Number.isFinite(parsedId) && parsedId > 0
+        ? await api.getResults(parsedId)
+        : await api.getCurrentResults();
       setData(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur");
+      const msg = getErrorMessage(err);
+      setError(
+        msg.toLowerCase().includes("aucun") || msg.includes("404")
+          ? "Aucun résultat n'est publié pour le moment. L'administrateur doit cocher « Afficher les résultats au public »."
+          : msg,
+      );
       setData(null);
     } finally {
       setLoading(false);
@@ -41,6 +52,9 @@ export default function ResultsPage() {
   const total = Object.values(results).reduce((a, b) => a + b, 0);
   const maxVotes = Math.max(...Object.values(results), 0);
   const isActive = data?.status === "active";
+  const shareUrl = data
+    ? `${window.location.origin}/results/${data.election_id}`
+    : null;
 
   const sorted = [...candidates].sort(
     (a, b) => (results[b.id] ?? 0) - (results[a.id] ?? 0),
@@ -78,8 +92,14 @@ export default function ResultsPage() {
               <p className="card__desc">
                 {isActive ? "Scrutin en cours · répartition provisoire des voix" : "Répartition finale des voix par candidat"}
               </p>
+              {!isActive && shareUrl && (
+                <p className="card__desc" style={{ marginTop: "0.5rem" }}>
+                  Lien à partager : <a href={shareUrl}>{shareUrl}</a>
+                </p>
+              )}
             </div>
             {isActive && <span className="badge active">En direct</span>}
+            {!isActive && <span className="badge closed">Clôturé</span>}
           </div>
 
           <div className="result-bar-list">

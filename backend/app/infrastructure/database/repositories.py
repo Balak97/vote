@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities import Candidate, Election, ElectionStatus, OtpSession, Vote, Voter
@@ -52,6 +52,7 @@ def _to_election(model: ElectionModel) -> Election:
         status=ElectionStatus(model.status),
         starts_at=model.starts_at,
         ends_at=model.ends_at,
+        results_published=model.results_published,
     )
 
 
@@ -166,6 +167,7 @@ class SqlAlchemyElectionRepository(IElectionRepository):
             status=election.status.value,
             starts_at=election.starts_at,
             ends_at=election.ends_at,
+            results_published=election.results_published,
         )
         self._session.add(model)
         await self._session.flush()
@@ -180,6 +182,24 @@ class SqlAlchemyElectionRepository(IElectionRepository):
         model.status = election.status.value
         model.starts_at = election.starts_at
         model.ends_at = election.ends_at
+        model.results_published = election.results_published
+        await self._session.flush()
+        return _to_election(model)
+
+    async def get_published(self) -> Election | None:
+        stmt = select(ElectionModel).where(ElectionModel.results_published.is_(True))
+        result = (await self._session.execute(stmt)).scalar_one_or_none()
+        return _to_election(result) if result else None
+
+    async def set_results_published(self, election_id: int, published: bool) -> Election:
+        if published:
+            await self._session.execute(
+                update(ElectionModel).values(results_published=False),
+            )
+        model = await self._session.get(ElectionModel, election_id)
+        if not model:
+            raise ValueError("Élection introuvable")
+        model.results_published = published
         await self._session.flush()
         return _to_election(model)
 

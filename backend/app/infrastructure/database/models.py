@@ -29,6 +29,7 @@ class ElectionModel(Base):
     status: Mapped[str] = mapped_column(String(20), default="draft")
     starts_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     ends_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    results_published: Mapped[bool] = mapped_column(Boolean, default=False)
 
     candidates: Mapped[list["CandidateModel"]] = relationship(back_populates="election")
 

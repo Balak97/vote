@@ -13,6 +13,7 @@ export default function App() {
         <Route path="/vote" element={<VotePage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/results" element={<ResultsPage />} />
+        <Route path="/results/:electionId" element={<ResultsPage />} />
       </Routes>
     </Layout>
   );

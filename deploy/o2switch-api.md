@@ -153,3 +153,5 @@ npm run build
 ```
 
 Puis uploader `frontend/dist/` dans `/vote.cantic-mali.com/`.
+
+Voir **`deploy/o2switch-frontend.md`** pour le `.htaccess` proxy (recommandé — évite Tiger Protect).
