@@ -116,6 +116,9 @@ class IFeedbackRepository(ABC):
     @abstractmethod
     async def create(self, feedback: Feedback) -> Feedback: ...
 
+    @abstractmethod
+    async def list_all(self) -> list[Feedback]: ...
+
 
 class IExcelImporter(ABC):
     @abstractmethod

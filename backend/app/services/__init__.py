@@ -551,3 +551,6 @@ class FeedbackService:
                 pass
 
         return created
+
+    async def list_all(self) -> list[Feedback]:
+        return await self._feedback_repo.list_all()

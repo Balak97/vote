@@ -66,6 +66,14 @@ class FeedbackResponse(BaseModel):
     message: str
 
 
+class FeedbackItemResponse(BaseModel):
+    id: int
+    email: str
+    phone: str
+    message: str
+    created_at: datetime
+
+
 class RegistrationCheckRequest(BaseModel):
     email: str = Field(..., max_length=255)
 

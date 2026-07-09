@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Alert from "../components/Alert";
 import CandidatePhoto from "../components/CandidatePhoto";
 import PageHero from "../components/PageHero";
-import { api, Candidate, Election, Voter } from "../api/client";
+import { api, Candidate, Election, Feedback, Voter } from "../api/client";
 import {
   ADMIN_AUTH_EVENT,
   clearAdminSession,
@@ -58,6 +58,9 @@ export default function AdminPage() {
   const [editVoterLast, setEditVoterLast] = useState("");
   const [editVoterActive, setEditVoterActive] = useState(true);
 
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [exportingFeedbacks, setExportingFeedbacks] = useState(false);
+
   useEffect(() => {
     if (token) {
       refreshData(token);
@@ -73,12 +76,14 @@ export default function AdminPage() {
   }, []);
 
   async function refreshData(authToken: string) {
-    const [v, e] = await Promise.all([
+    const [v, e, f] = await Promise.all([
       api.listVoters(authToken),
       api.listElections(authToken),
+      api.listFeedbacks(authToken),
     ]);
     setVoters(v);
     setElections(e);
+    setFeedbacks(f);
     if (selectedElection) {
       const c = await api.listCandidatesAdmin(selectedElection, authToken);
       setCandidates(c);
@@ -334,6 +339,20 @@ export default function AdminPage() {
     }
   }
 
+  async function handleExportFeedbacks() {
+    if (!token) return;
+    setError(null);
+    setExportingFeedbacks(true);
+    try {
+      await api.exportFeedbacks(token);
+      setMessage("Export Excel des plaintes téléchargé.");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setExportingFeedbacks(false);
+    }
+  }
+
   function logout() {
     clearAdminSession();
     setToken(null);
@@ -448,6 +467,52 @@ export default function AdminPage() {
             Colonnes : <code>email</code> · <code>telephone</code> · <code>nom</code> · <code>prenom</code>
           </p>
         </div>
+      </div>
+
+      <div className="card">
+        <div className="card__header">
+          <div>
+            <h2 className="card__title">Plaintes et observations</h2>
+            <p className="card__desc">Messages envoyés depuis la page d&apos;accueil</p>
+          </div>
+          <button
+            type="button"
+            className="secondary"
+            onClick={handleExportFeedbacks}
+            disabled={exportingFeedbacks || feedbacks.length === 0}
+          >
+            {exportingFeedbacks ? "Export…" : "Exporter en Excel"}
+          </button>
+        </div>
+        {feedbacks.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state__icon">📩</div>
+            <p>Aucune plainte ou observation pour le moment.</p>
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Email</th>
+                  <th>Téléphone</th>
+                  <th>Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {feedbacks.map((f) => (
+                  <tr key={f.id}>
+                    <td>{formatDateTimeFr(f.created_at)}</td>
+                    <td>{f.email}</td>
+                    <td>{f.phone}</td>
+                    <td className="feedback-message-cell">{f.message}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="grid-2">

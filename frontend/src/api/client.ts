@@ -15,6 +15,14 @@ export type Voter = {
   is_active: boolean;
 };
 
+export type Feedback = {
+  id: number;
+  email: string;
+  phone: string;
+  message: string;
+  created_at: string;
+};
+
 export type Election = {
   id: number;
   title: string;
@@ -303,4 +311,26 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ subject, message }),
     }, token),
+
+  listFeedbacks: (token: string) => request<Feedback[]>("/admin/feedbacks", {}, token),
+
+  exportFeedbacks: async (token: string) => {
+    const response = await fetch(`${API_BASE}/admin/feedbacks/export`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const payload = await parseErrorResponse(response);
+      throw new Error(formatHttpError(response.status, payload));
+    }
+    const blob = await response.blob();
+    const disposition = response.headers.get("Content-Disposition");
+    const match = disposition?.match(/filename="?([^"]+)"?/);
+    const filename = match?.[1] ?? "plaintes.xlsx";
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  },
 };

@@ -1274,6 +1274,14 @@ tbody tr:hover {
   padding: 0.5rem 0;
 }
 
+.feedback-message-cell {
+  max-width: 28rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
 .election-timer {
   margin-bottom: 1.25rem;
   padding: 1rem 1.15rem;

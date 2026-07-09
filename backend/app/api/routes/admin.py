@@ -1,6 +1,8 @@
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import (
@@ -8,6 +10,7 @@ from app.api.dependencies import (
     get_candidate_service,
     get_current_admin,
     get_election_service,
+    get_feedback_service,
     get_voter_import_service,
     get_voter_repo,
     get_voter_service,
@@ -20,6 +23,7 @@ from app.api.schemas import (
     ElectionCreateRequest,
     ElectionResponse,
     ElectionUpdateRequest,
+    FeedbackItemResponse,
     ImportResultResponse,
     PublishResultsRequest,
     TokenResponse,
@@ -29,8 +33,16 @@ from app.api.schemas import (
 from app.domain.entities import Candidate
 from app.domain.interfaces import IVoterRepository
 from app.infrastructure.database.session import get_session
+from app.infrastructure.excel.feedback_exporter import export_feedbacks_to_excel
 from app.infrastructure.storage.photo_storage import PhotoStorageService
-from app.services import AuthService, CandidateService, ElectionService, VoterImportService, VoterService
+from app.services import (
+    AuthService,
+    CandidateService,
+    ElectionService,
+    FeedbackService,
+    VoterImportService,
+    VoterService,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 photo_storage = PhotoStorageService()
@@ -150,6 +162,40 @@ async def broadcast_message(
     if failed:
         summary += f" {failed} envoi(s) ont échoué."
     return BroadcastMessageResponse(sent=sent, failed=failed, message=summary)
+
+
+@router.get("/feedbacks", response_model=list[FeedbackItemResponse])
+async def list_feedbacks(
+    _: Annotated[str, Depends(get_current_admin)],
+    feedback_service: Annotated[FeedbackService, Depends(get_feedback_service)],
+) -> list[FeedbackItemResponse]:
+    items = await feedback_service.list_all()
+    return [
+        FeedbackItemResponse(
+            id=item.id,
+            email=item.email,
+            phone=item.phone,
+            message=item.message,
+            created_at=item.created_at or datetime.utcnow(),
+        )
+        for item in items
+        if item.id is not None
+    ]
+
+
+@router.get("/feedbacks/export")
+async def export_feedbacks(
+    _: Annotated[str, Depends(get_current_admin)],
+    feedback_service: Annotated[FeedbackService, Depends(get_feedback_service)],
+) -> Response:
+    items = await feedback_service.list_all()
+    content = export_feedbacks_to_excel(items)
+    filename = f"plaintes_{datetime.utcnow().strftime('%Y%m%d_%H%M')}.xlsx"
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/elections", response_model=ElectionResponse)

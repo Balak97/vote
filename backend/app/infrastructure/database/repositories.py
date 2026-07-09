@@ -345,3 +345,17 @@ class SqlAlchemyFeedbackRepository(IFeedbackRepository):
             message=model.message,
             created_at=model.created_at,
         )
+
+    async def list_all(self) -> list[Feedback]:
+        stmt = select(FeedbackModel).order_by(FeedbackModel.created_at.desc())
+        results = (await self._session.execute(stmt)).scalars().all()
+        return [
+            Feedback(
+                id=model.id,
+                email=model.email,
+                phone=model.phone,
+                message=model.message,
+                created_at=model.created_at,
+            )
+            for model in results
+        ]
