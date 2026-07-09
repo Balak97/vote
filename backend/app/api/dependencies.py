@@ -13,6 +13,7 @@ from app.infrastructure.database.repositories import (
     SqlAlchemyVoterRepository,
 )
 from app.infrastructure.database.session import get_session
+from app.services.rate_limit import RateLimitService
 from app.infrastructure.excel.importer import ExcelVoterImporter
 from app.infrastructure.notifications.factory import get_notification_service
 from app.services import (
@@ -77,6 +78,12 @@ def get_feedback_service(
     feedback_repo: Annotated[SqlAlchemyFeedbackRepository, Depends(get_feedback_repo)],
 ) -> FeedbackService:
     return FeedbackService(feedback_repo, get_notification_service())
+
+
+def get_rate_limit_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> RateLimitService:
+    return RateLimitService(session)
 
 
 def get_candidate_service(

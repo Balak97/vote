@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import (
@@ -9,6 +9,7 @@ from app.api.dependencies import (
     get_current_voter_id,
     get_election_service,
     get_feedback_service,
+    get_rate_limit_service,
     get_vote_service,
     get_voter_repo,
     get_voter_service,
@@ -36,6 +37,7 @@ from app.domain.entities import ElectionStatus
 from app.domain.interfaces import IVoterRepository
 from app.infrastructure.database.session import get_session
 from app.services import AuthService, CandidateService, ElectionService, FeedbackService, VoteService, VoterService
+from app.services.rate_limit import RateLimitService
 
 router = APIRouter(prefix="/vote", tags=["vote"])
 
@@ -81,10 +83,19 @@ async def _ensure_results_are_public(election_service: ElectionService, election
 
 @router.post("/feedback", response_model=FeedbackResponse)
 async def submit_feedback(
+    request: Request,
     body: FeedbackRequest,
     feedback_service: Annotated[FeedbackService, Depends(get_feedback_service)],
+    rate_limit: Annotated[RateLimitService, Depends(get_rate_limit_service)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> FeedbackResponse:
+    await rate_limit.enforce_ip(
+        request,
+        "feedback",
+        settings.rate_limit_feedback_ip_max,
+        settings.rate_limit_feedback_window,
+    )
+    await session.commit()
     try:
         await feedback_service.submit(body.email, body.phone, body.message)
         await session.commit()
@@ -96,19 +107,50 @@ async def submit_feedback(
 
 @router.post("/check-registration", response_model=RegistrationCheckResponse)
 async def check_registration(
+    request: Request,
     body: RegistrationCheckRequest,
     voter_service: Annotated[VoterService, Depends(get_voter_service)],
+    rate_limit: Annotated[RateLimitService, Depends(get_rate_limit_service)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> RegistrationCheckResponse:
+    await rate_limit.enforce_ip(
+        request,
+        "registration",
+        settings.rate_limit_registration_ip_max,
+        settings.rate_limit_registration_window,
+    )
+    await rate_limit.enforce_value(
+        "registration_email",
+        body.email,
+        settings.rate_limit_registration_email_max,
+        settings.rate_limit_registration_window,
+    )
+    await session.commit()
     registered, message = await voter_service.check_registration(body.email)
     return RegistrationCheckResponse(registered=registered, message=message)
 
 
 @router.post("/otp/request", response_model=OtpSentResponse)
 async def request_otp(
+    request: Request,
     body: OtpRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    rate_limit: Annotated[RateLimitService, Depends(get_rate_limit_service)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> OtpSentResponse:
+    await rate_limit.enforce_ip(
+        request,
+        "otp_request",
+        settings.rate_limit_otp_request_ip_max,
+        settings.rate_limit_otp_request_window,
+    )
+    await rate_limit.enforce_value(
+        "otp_request_id",
+        body.identifier,
+        settings.rate_limit_otp_request_id_max,
+        settings.rate_limit_otp_request_window,
+    )
+    await session.commit()
     try:
         email_hint, code = await auth_service.request_otp(body.identifier)
         await session.commit()
@@ -131,10 +173,25 @@ async def request_otp(
 
 @router.post("/otp/verify", response_model=TokenResponse)
 async def verify_otp(
+    request: Request,
     body: OtpVerifyRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    rate_limit: Annotated[RateLimitService, Depends(get_rate_limit_service)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> TokenResponse:
+    await rate_limit.enforce_ip(
+        request,
+        "otp_verify",
+        settings.rate_limit_otp_verify_ip_max,
+        settings.rate_limit_otp_verify_window,
+    )
+    await rate_limit.enforce_value(
+        "otp_verify_id",
+        body.identifier,
+        settings.rate_limit_otp_verify_id_max,
+        settings.rate_limit_otp_verify_window,
+    )
+    await session.commit()
     try:
         token, _ = await auth_service.verify_otp(body.identifier, body.code)
         await session.commit()

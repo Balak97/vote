@@ -34,6 +34,20 @@ class Settings(BaseSettings):
     default_from_email: str | None = None
     admin_notification_email: str | None = None
 
+    rate_limit_admin_login_max: int = 5
+    rate_limit_admin_login_window: int = 900
+    rate_limit_otp_request_ip_max: int = 5
+    rate_limit_otp_request_id_max: int = 3
+    rate_limit_otp_request_window: int = 900
+    rate_limit_otp_verify_ip_max: int = 10
+    rate_limit_otp_verify_id_max: int = 5
+    rate_limit_otp_verify_window: int = 900
+    rate_limit_feedback_ip_max: int = 3
+    rate_limit_feedback_window: int = 3600
+    rate_limit_registration_ip_max: int = 10
+    rate_limit_registration_email_max: int = 5
+    rate_limit_registration_window: int = 3600
+
     @model_validator(mode="after")
     def build_database_url(self) -> Self:
         if self.db_name and self.db_user and self.db_password is not None:

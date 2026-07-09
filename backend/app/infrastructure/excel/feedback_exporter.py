@@ -1,10 +1,10 @@
-from datetime import datetime
 from io import BytesIO
 
 from openpyxl import Workbook
 from openpyxl.styles import Font
 
 from app.domain.entities import Feedback
+from app.utils.timezone import format_moscow_datetime
 
 
 def export_feedbacks_to_excel(feedbacks: list[Feedback]) -> bytes:
@@ -12,15 +12,14 @@ def export_feedbacks_to_excel(feedbacks: list[Feedback]) -> bytes:
     ws = wb.active
     ws.title = "plaintes"
 
-    headers = ("Date", "Email", "Téléphone", "Message")
+    headers = ("Date (Moscou)", "Email", "Téléphone", "Message")
     ws.append(headers)
     for cell in ws[1]:
         cell.font = Font(bold=True)
 
     for item in feedbacks:
-        created = item.created_at or datetime.utcnow()
         ws.append([
-            created.strftime("%Y-%m-%d %H:%M"),
+            format_moscow_datetime(item.created_at),
             item.email,
             item.phone,
             item.message,

@@ -542,7 +542,7 @@ export default function AdminPage() {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="starts-at">Date et heure d&apos;ouverture</label>
+              <label htmlFor="starts-at">Date et heure d&apos;ouverture (Moscou)</label>
               <input
                 id="starts-at"
                 type="datetime-local"
@@ -552,7 +552,7 @@ export default function AdminPage() {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="ends-at">Date et heure de fermeture</label>
+              <label htmlFor="ends-at">Date et heure de fermeture (Moscou)</label>
               <input
                 id="ends-at"
                 type="datetime-local"
@@ -803,7 +803,7 @@ export default function AdminPage() {
                     />
                   </div>
                   <div className="form-group">
-                    <label htmlFor={`edit-starts-${e.id}`}>Ouverture</label>
+                    <label htmlFor={`edit-starts-${e.id}`}>Ouverture (Moscou)</label>
                     <input
                       id={`edit-starts-${e.id}`}
                       type="datetime-local"
@@ -814,7 +814,7 @@ export default function AdminPage() {
                     />
                   </div>
                   <div className="form-group">
-                    <label htmlFor={`edit-ends-${e.id}`}>Fermeture</label>
+                    <label htmlFor={`edit-ends-${e.id}`}>Fermeture (Moscou)</label>
                     <input
                       id={`edit-ends-${e.id}`}
                       type="datetime-local"

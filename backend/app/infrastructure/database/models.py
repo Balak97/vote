@@ -77,3 +77,11 @@ class FeedbackModel(Base):
     phone: Mapped[str] = mapped_column(String(20))
     message: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class RateLimitHitModel(Base):
+    __tablename__ = "rate_limit_hits"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    bucket_key: Mapped[str] = mapped_column(String(255), index=True)
+    hit_at: Mapped[datetime] = mapped_column(DateTime, index=True, default=datetime.utcnow)

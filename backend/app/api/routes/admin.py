@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +11,7 @@ from app.api.dependencies import (
     get_current_admin,
     get_election_service,
     get_feedback_service,
+    get_rate_limit_service,
     get_voter_import_service,
     get_voter_repo,
     get_voter_service,
@@ -32,9 +33,11 @@ from app.api.schemas import (
 )
 from app.domain.entities import Candidate
 from app.domain.interfaces import IVoterRepository
+from app.config import settings
 from app.infrastructure.database.session import get_session
 from app.infrastructure.excel.feedback_exporter import export_feedbacks_to_excel
 from app.infrastructure.storage.photo_storage import PhotoStorageService
+from app.utils.timezone import to_moscow
 from app.services import (
     AuthService,
     CandidateService,
@@ -43,6 +46,7 @@ from app.services import (
     VoterImportService,
     VoterService,
 )
+from app.services.rate_limit import RateLimitService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 photo_storage = PhotoStorageService()
@@ -62,9 +66,19 @@ def _to_election_response(election) -> ElectionResponse:
 
 @router.post("/login", response_model=TokenResponse)
 async def admin_login(
+    request: Request,
     body: AdminLoginRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    rate_limit: Annotated[RateLimitService, Depends(get_rate_limit_service)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> TokenResponse:
+    await rate_limit.enforce_ip(
+        request,
+        "admin_login",
+        settings.rate_limit_admin_login_max,
+        settings.rate_limit_admin_login_window,
+    )
+    await session.commit()
     try:
         token = auth_service.verify_admin(body.username, body.password)
         return TokenResponse(access_token=token)
@@ -190,7 +204,9 @@ async def export_feedbacks(
 ) -> Response:
     items = await feedback_service.list_all()
     content = export_feedbacks_to_excel(items)
-    filename = f"plaintes_{datetime.utcnow().strftime('%Y%m%d_%H%M')}.xlsx"
+    moscow_now = to_moscow(datetime.utcnow())
+    stamp = moscow_now.strftime("%Y%m%d_%H%M") if moscow_now else datetime.utcnow().strftime("%Y%m%d_%H%M")
+    filename = f"plaintes_{stamp}.xlsx"
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
