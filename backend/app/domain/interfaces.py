@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 
-from app.domain.entities import Candidate, Election, OtpSession, Vote, Voter
+from app.domain.entities import Candidate, Election, Feedback, OtpSession, Vote, Voter
 
 
 class IVoterRepository(ABC):
@@ -25,6 +25,12 @@ class IVoterRepository(ABC):
 
     @abstractmethod
     async def mark_as_voted(self, voter_id: int) -> None: ...
+
+    @abstractmethod
+    async def update(self, voter: Voter) -> Voter: ...
+
+    @abstractmethod
+    async def delete(self, voter_id: int) -> None: ...
 
 
 class ICandidateRepository(ABC):
@@ -77,6 +83,9 @@ class IVoteRepository(ABC):
     @abstractmethod
     async def count_for_election(self, election_id: int) -> int: ...
 
+    @abstractmethod
+    async def delete_by_voter(self, voter_id: int) -> None: ...
+
 
 class IOtpRepository(ABC):
     @abstractmethod
@@ -91,12 +100,21 @@ class IOtpRepository(ABC):
     @abstractmethod
     async def invalidate_previous(self, voter_id: int) -> None: ...
 
+    @abstractmethod
+    async def delete_by_voter(self, voter_id: int) -> None: ...
+
 
 class INotificationService(ABC):
-    """Envoi du code OTP par email uniquement."""
-
     @abstractmethod
     async def send_otp_email(self, email: str, code: str) -> None: ...
+
+    @abstractmethod
+    async def send_email(self, email: str, subject: str, body: str) -> None: ...
+
+
+class IFeedbackRepository(ABC):
+    @abstractmethod
+    async def create(self, feedback: Feedback) -> Feedback: ...
 
 
 class IExcelImporter(ABC):

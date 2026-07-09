@@ -67,3 +67,13 @@ class OtpSessionModel(Base):
     code: Mapped[str] = mapped_column(String(6))
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     verified: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class FeedbackModel(Base):
+    __tablename__ = "feedbacks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    phone: Mapped[str] = mapped_column(String(20))
+    message: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

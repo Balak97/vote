@@ -266,4 +266,41 @@ export const api = {
     request<{ election_id: number; title: string; status: string; results: Record<number, number>; candidates: Candidate[] }>(
       "/vote/elections/current/results",
     ),
+
+  submitFeedback: (email: string, phone: string, message: string) =>
+    request<{ message: string }>("/vote/feedback", {
+      method: "POST",
+      body: JSON.stringify({ email, phone, message }),
+    }),
+
+  checkRegistration: (email: string) =>
+    request<{ registered: boolean; message: string }>("/vote/check-registration", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  updateVoter: (
+    id: number,
+    data: {
+      email?: string;
+      phone?: string;
+      first_name?: string;
+      last_name?: string;
+      is_active?: boolean;
+    },
+    token: string,
+  ) =>
+    request<Voter>(`/admin/voters/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }, token),
+
+  deleteVoter: (id: number, token: string) =>
+    request<void>(`/admin/voters/${id}`, { method: "DELETE" }, token),
+
+  broadcastMessage: (subject: string, message: string, token: string) =>
+    request<{ sent: number; failed: number; message: string }>("/admin/voters/broadcast", {
+      method: "POST",
+      body: JSON.stringify({ subject, message }),
+    }, token),
 };

@@ -58,3 +58,12 @@ class OtpSession:
     code: str
     expires_at: datetime
     verified: bool = False
+
+
+@dataclass
+class Feedback:
+    id: int | None
+    email: str
+    phone: str
+    message: str
+    created_at: datetime | None = None

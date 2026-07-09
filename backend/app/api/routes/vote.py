@@ -8,18 +8,24 @@ from app.api.dependencies import (
     get_candidate_service,
     get_current_voter_id,
     get_election_service,
+    get_feedback_service,
     get_vote_service,
     get_voter_repo,
+    get_voter_service,
 )
 from app.api.schemas import (
     CandidateResponse,
     CastVoteRequest,
     ElectionResponse,
     ElectionLiveDashboard,
+    FeedbackRequest,
+    FeedbackResponse,
     LiveDashboardResponse,
     OtpRequest,
     OtpSentResponse,
     OtpVerifyRequest,
+    RegistrationCheckRequest,
+    RegistrationCheckResponse,
     ResultsResponse,
     TokenResponse,
     VoteResponse,
@@ -29,7 +35,7 @@ from app.config import settings
 from app.domain.entities import ElectionStatus
 from app.domain.interfaces import IVoterRepository
 from app.infrastructure.database.session import get_session
-from app.services import AuthService, CandidateService, ElectionService, VoteService
+from app.services import AuthService, CandidateService, ElectionService, FeedbackService, VoteService, VoterService
 
 router = APIRouter(prefix="/vote", tags=["vote"])
 
@@ -70,7 +76,31 @@ async def _resolve_display_election_id(election_service: ElectionService) -> int
 async def _ensure_results_are_public(election_service: ElectionService, election_id: int) -> None:
     published = await election_service.get_published_election()
     if not published or published.id != election_id:
-        raise HTTPException(status_code=404, detail="Aucun résultat publié pour cette élection")
+        raise HTTPException(status_code=404, detail="Aucun résultat disponible")
+
+
+@router.post("/feedback", response_model=FeedbackResponse)
+async def submit_feedback(
+    body: FeedbackRequest,
+    feedback_service: Annotated[FeedbackService, Depends(get_feedback_service)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> FeedbackResponse:
+    try:
+        await feedback_service.submit(body.email, body.phone, body.message)
+        await session.commit()
+        return FeedbackResponse(message="Votre message a bien été envoyé. Merci.")
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/check-registration", response_model=RegistrationCheckResponse)
+async def check_registration(
+    body: RegistrationCheckRequest,
+    voter_service: Annotated[VoterService, Depends(get_voter_service)],
+) -> RegistrationCheckResponse:
+    registered, message = await voter_service.check_registration(body.email)
+    return RegistrationCheckResponse(registered=registered, message=message)
 
 
 @router.post("/otp/request", response_model=OtpSentResponse)

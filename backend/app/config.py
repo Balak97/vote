@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     email_host_user: str | None = None
     email_host_password: str | None = None
     default_from_email: str | None = None
+    admin_notification_email: str | None = None
 
     @model_validator(mode="after")
     def build_database_url(self) -> Self:

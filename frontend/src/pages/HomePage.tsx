@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import HomeContactSection from "../components/HomeContactSection";
 import LiveVoteDashboard from "../components/LiveVoteDashboard";
 
 const features = [
@@ -42,6 +43,8 @@ export default function HomePage() {
       </section>
 
       <LiveVoteDashboard />
+
+      <HomeContactSection />
 
       <section style={{ marginTop: "2.5rem" }}>
         <h2 style={{ fontFamily: "var(--font-display)", color: "var(--color-primary)", marginBottom: "1.25rem" }}>

@@ -47,6 +47,17 @@ export default function AdminPage() {
   const [candidatePhoto, setCandidatePhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
+  const [broadcastSubject, setBroadcastSubject] = useState("");
+  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [broadcastLoading, setBroadcastLoading] = useState(false);
+
+  const [editingVoterId, setEditingVoterId] = useState<number | null>(null);
+  const [editVoterEmail, setEditVoterEmail] = useState("");
+  const [editVoterPhone, setEditVoterPhone] = useState("");
+  const [editVoterFirst, setEditVoterFirst] = useState("");
+  const [editVoterLast, setEditVoterLast] = useState("");
+  const [editVoterActive, setEditVoterActive] = useState(true);
+
   useEffect(() => {
     if (token) {
       refreshData(token);
@@ -249,6 +260,78 @@ export default function AdminPage() {
     }
     setCandidatePhoto(file);
     setPhotoPreview(URL.createObjectURL(file));
+  }
+
+  async function handleBroadcast(e: FormEvent) {
+    e.preventDefault();
+    if (!token) return;
+    setError(null);
+    setMessage(null);
+    setBroadcastLoading(true);
+    try {
+      const res = await api.broadcastMessage(broadcastSubject, broadcastMessage, token);
+      setMessage(res.message);
+      setBroadcastSubject("");
+      setBroadcastMessage("");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setBroadcastLoading(false);
+    }
+  }
+
+  function startEditVoter(voter: Voter) {
+    setEditingVoterId(voter.id);
+    setEditVoterEmail(voter.email);
+    setEditVoterPhone(voter.phone);
+    setEditVoterFirst(voter.first_name);
+    setEditVoterLast(voter.last_name);
+    setEditVoterActive(voter.is_active);
+  }
+
+  function cancelEditVoter() {
+    setEditingVoterId(null);
+  }
+
+  async function handleUpdateVoter(e: FormEvent, voterId: number) {
+    e.preventDefault();
+    if (!token) return;
+    setError(null);
+    try {
+      await api.updateVoter(
+        voterId,
+        {
+          email: editVoterEmail,
+          phone: editVoterPhone,
+          first_name: editVoterFirst,
+          last_name: editVoterLast,
+          is_active: editVoterActive,
+        },
+        token,
+      );
+      setEditingVoterId(null);
+      await refreshData(token);
+      setMessage("Électeur mis à jour.");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  }
+
+  async function handleDeleteVoter(voter: Voter) {
+    if (!token) return;
+    const confirmed = window.confirm(
+      `Supprimer ${voter.first_name} ${voter.last_name} de la liste électorale ?`,
+    );
+    if (!confirmed) return;
+    setError(null);
+    try {
+      await api.deleteVoter(voter.id, token);
+      if (editingVoterId === voter.id) setEditingVoterId(null);
+      await refreshData(token);
+      setMessage("Électeur supprimé.");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   }
 
   function logout() {
@@ -478,6 +561,40 @@ export default function AdminPage() {
 
       <div className="card">
         <div className="card__header">
+          <div>
+            <h2 className="card__title">Message à tous les électeurs</h2>
+            <p className="card__desc">Envoi par email à tous les électeurs actifs de la liste.</p>
+          </div>
+        </div>
+        <form onSubmit={handleBroadcast}>
+          <div className="form-group">
+            <label htmlFor="broadcast-subject">Objet</label>
+            <input
+              id="broadcast-subject"
+              value={broadcastSubject}
+              onChange={(e) => setBroadcastSubject(e.target.value)}
+              placeholder="Information importante"
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="broadcast-message">Message</label>
+            <textarea
+              id="broadcast-message"
+              value={broadcastMessage}
+              onChange={(e) => setBroadcastMessage(e.target.value)}
+              rows={5}
+              required
+            />
+          </div>
+          <button type="submit" disabled={broadcastLoading || voters.length === 0}>
+            {broadcastLoading ? "Envoi en cours…" : "Envoyer à tous les électeurs"}
+          </button>
+        </form>
+      </div>
+
+      <div className="card">
+        <div className="card__header">
           <h2 className="card__title">Liste des électeurs</h2>
         </div>
         {voters.length === 0 ? (
@@ -494,18 +611,92 @@ export default function AdminPage() {
                   <th>Email</th>
                   <th>Téléphone</th>
                   <th>Statut</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {voters.map((v) => (
                   <tr key={v.id}>
-                    <td><strong>{v.first_name} {v.last_name}</strong></td>
-                    <td>{v.email}</td>
-                    <td>{v.phone}</td>
-                    <td>
-                      <span className={`status-dot status-dot--${v.has_voted ? "yes" : "no"}`} />
-                      {v.has_voted ? "A voté" : "En attente"}
-                    </td>
+                    {editingVoterId === v.id ? (
+                      <td colSpan={5}>
+                        <form onSubmit={(e) => handleUpdateVoter(e, v.id)} className="voter-edit-form">
+                          <div className="grid-2">
+                            <div className="form-group">
+                              <label htmlFor={`v-first-${v.id}`}>Prénom</label>
+                              <input
+                                id={`v-first-${v.id}`}
+                                value={editVoterFirst}
+                                onChange={(e) => setEditVoterFirst(e.target.value)}
+                                required
+                              />
+                            </div>
+                            <div className="form-group">
+                              <label htmlFor={`v-last-${v.id}`}>Nom</label>
+                              <input
+                                id={`v-last-${v.id}`}
+                                value={editVoterLast}
+                                onChange={(e) => setEditVoterLast(e.target.value)}
+                                required
+                              />
+                            </div>
+                            <div className="form-group">
+                              <label htmlFor={`v-email-${v.id}`}>Email</label>
+                              <input
+                                id={`v-email-${v.id}`}
+                                type="email"
+                                value={editVoterEmail}
+                                onChange={(e) => setEditVoterEmail(e.target.value)}
+                                required
+                              />
+                            </div>
+                            <div className="form-group">
+                              <label htmlFor={`v-phone-${v.id}`}>Téléphone</label>
+                              <input
+                                id={`v-phone-${v.id}`}
+                                value={editVoterPhone}
+                                onChange={(e) => setEditVoterPhone(e.target.value)}
+                                required
+                              />
+                            </div>
+                          </div>
+                          <label className="election-item__publish">
+                            <input
+                              type="checkbox"
+                              checked={editVoterActive}
+                              onChange={(e) => setEditVoterActive(e.target.checked)}
+                            />
+                            <span>Électeur actif (autorisé à voter)</span>
+                          </label>
+                          <div className="btn-row">
+                            <button type="submit">Enregistrer</button>
+                            <button type="button" className="secondary" onClick={cancelEditVoter}>
+                              Annuler
+                            </button>
+                          </div>
+                        </form>
+                      </td>
+                    ) : (
+                      <>
+                        <td><strong>{v.first_name} {v.last_name}</strong></td>
+                        <td>{v.email}</td>
+                        <td>{v.phone}</td>
+                        <td>
+                          <span className={`status-dot status-dot--${v.has_voted ? "yes" : "no"}`} />
+                          {v.has_voted ? "A voté" : "En attente"}
+                          {!v.is_active && " · Inactif"}
+                        </td>
+                        <td>
+                          <div className="btn-row" style={{ margin: 0 }}>
+                            <button type="button" className="secondary" onClick={() => startEditVoter(v)}>
+                              Modifier
+                            </button>
+                            <button type="button" className="danger" onClick={() => handleDeleteVoter(v)}>
+                              Supprimer
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>

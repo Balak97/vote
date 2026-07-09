@@ -212,11 +212,8 @@ export default function LiveVoteDashboard() {
         <div className="card live-dashboard__empty">
           <div className="empty-state">
             <div className="empty-state__icon">🗳️</div>
-            <h3>Aucun résultat publié</h3>
-            <p>
-              L&apos;administrateur doit cocher « Afficher les résultats au public » sur une élection
-              pour que les chiffres apparaissent ici.
-            </p>
+            <h3>Résultats indisponibles</h3>
+            <p>Les résultats du scrutin ne sont pas disponibles pour le moment.</p>
             <Link to="/results" className="btn btn--ghost" style={{ marginTop: "1rem" }}>
               Page des résultats
             </Link>

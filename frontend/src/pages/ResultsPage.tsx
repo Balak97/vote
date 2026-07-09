@@ -7,6 +7,8 @@ import PageHero from "../components/PageHero";
 import { api, Candidate } from "../api/client";
 import { isUniqueVoteLeader } from "../utils/votes";
 
+const PUBLIC_RESULTS_UNAVAILABLE = "Les résultats ne sont pas disponibles pour le moment.";
+
 type ElectionResults = {
   election_id: number;
   title: string;
@@ -36,11 +38,11 @@ export default function ResultsPage() {
       setData(result);
     } catch (err) {
       const msg = getErrorMessage(err);
-      setError(
-        msg.toLowerCase().includes("aucun") || msg.includes("404")
-          ? "Aucun résultat n'est publié pour le moment. L'administrateur doit cocher « Afficher les résultats au public »."
-          : msg,
-      );
+      const isUnavailable =
+        msg.toLowerCase().includes("aucun") ||
+        msg.toLowerCase().includes("disponible") ||
+        msg.includes("404");
+      setError(isUnavailable ? PUBLIC_RESULTS_UNAVAILABLE : msg);
       setData(null);
     } finally {
       setLoading(false);
@@ -82,7 +84,7 @@ export default function ResultsPage() {
         </div>
       )}
 
-      {error && !loading && <Alert type="error">{error}</Alert>}
+      {error && !loading && <Alert type="info">{error}</Alert>}
 
       {!loading && data && candidates.length > 0 && (
         <div className="card card--elevated">

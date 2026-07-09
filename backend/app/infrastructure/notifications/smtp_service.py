@@ -11,22 +11,27 @@ logger = logging.getLogger(__name__)
 
 class SmtpNotificationService(INotificationService):
     async def send_otp_email(self, email: str, code: str) -> None:
-        await asyncio.to_thread(self._send_sync, email, code)
+        subject = f"{settings.app_name} — Code de vérification"
+        body = (
+            f"Votre code de vérification {settings.app_name} est : {code}\n\n"
+            f"Ce code expire dans {settings.otp_expire_minutes} minutes.\n\n"
+            "Si vous n'avez pas demandé ce code, ignorez ce message."
+        )
+        await self.send_email(email, subject, body)
 
-    def _send_sync(self, email: str, code: str) -> None:
+    async def send_email(self, email: str, subject: str, body: str) -> None:
+        await asyncio.to_thread(self._send_email_sync, email, subject, body)
+
+    def _send_email_sync(self, email: str, subject: str, body: str) -> None:
         sender = settings.default_from_email or settings.email_host_user
         if not sender or not settings.email_host:
             raise RuntimeError("Configuration email incomplète")
 
         msg = EmailMessage()
-        msg["Subject"] = f"{settings.app_name} — Code de vérification"
+        msg["Subject"] = subject
         msg["From"] = sender
         msg["To"] = email
-        msg.set_content(
-            f"Votre code de vérification {settings.app_name} est : {code}\n\n"
-            f"Ce code expire dans {settings.otp_expire_minutes} minutes.\n\n"
-            "Si vous n'avez pas demandé ce code, ignorez ce message."
-        )
+        msg.set_content(body)
 
         try:
             if settings.email_use_ssl:
@@ -40,5 +45,5 @@ class SmtpNotificationService(INotificationService):
                     smtp.login(settings.email_host_user, settings.email_host_password)
                     smtp.send_message(msg)
         except smtplib.SMTPException as exc:
-            logger.exception("Échec envoi email OTP à %s", email)
-            raise RuntimeError("Impossible d'envoyer le code par email") from exc
+            logger.exception("Échec envoi email à %s", email)
+            raise RuntimeError("Impossible d'envoyer l'email") from exc

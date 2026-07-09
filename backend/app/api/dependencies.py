@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.repositories import (
     SqlAlchemyCandidateRepository,
     SqlAlchemyElectionRepository,
+    SqlAlchemyFeedbackRepository,
     SqlAlchemyOtpRepository,
     SqlAlchemyVoteRepository,
     SqlAlchemyVoterRepository,
@@ -18,8 +19,10 @@ from app.services import (
     AuthService,
     CandidateService,
     ElectionService,
+    FeedbackService,
     VoteService,
     VoterImportService,
+    VoterService,
 )
 
 security = HTTPBearer(auto_error=False)
@@ -56,6 +59,24 @@ def get_voter_import_service(
     voter_repo: Annotated[SqlAlchemyVoterRepository, Depends(get_voter_repo)],
 ) -> VoterImportService:
     return VoterImportService(voter_repo, ExcelVoterImporter())
+
+
+def get_feedback_repo(session: Annotated[AsyncSession, Depends(get_session)]) -> SqlAlchemyFeedbackRepository:
+    return SqlAlchemyFeedbackRepository(session)
+
+
+def get_voter_service(
+    voter_repo: Annotated[SqlAlchemyVoterRepository, Depends(get_voter_repo)],
+    vote_repo: Annotated[SqlAlchemyVoteRepository, Depends(get_vote_repo)],
+    otp_repo: Annotated[SqlAlchemyOtpRepository, Depends(get_otp_repo)],
+) -> VoterService:
+    return VoterService(voter_repo, vote_repo, otp_repo, get_notification_service())
+
+
+def get_feedback_service(
+    feedback_repo: Annotated[SqlAlchemyFeedbackRepository, Depends(get_feedback_repo)],
+) -> FeedbackService:
+    return FeedbackService(feedback_repo, get_notification_service())
 
 
 def get_candidate_service(

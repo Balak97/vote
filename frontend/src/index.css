@@ -1264,6 +1264,16 @@ tbody tr:hover {
   font-size: 0.85rem;
 }
 
+.home-contact__title {
+  font-family: var(--font-display);
+  color: var(--color-primary);
+  margin-bottom: 1.25rem;
+}
+
+.voter-edit-form {
+  padding: 0.5rem 0;
+}
+
 .election-timer {
   margin-bottom: 1.25rem;
   padding: 1rem 1.15rem;

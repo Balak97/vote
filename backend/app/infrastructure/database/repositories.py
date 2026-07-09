@@ -1,12 +1,13 @@
 from datetime import datetime
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.entities import Candidate, Election, ElectionStatus, OtpSession, Vote, Voter
+from app.domain.entities import Candidate, Election, ElectionStatus, Feedback, OtpSession, Vote, Voter
 from app.domain.interfaces import (
     ICandidateRepository,
     IElectionRepository,
+    IFeedbackRepository,
     IOtpRepository,
     IVoteRepository,
     IVoterRepository,
@@ -14,6 +15,7 @@ from app.domain.interfaces import (
 from app.infrastructure.database.models import (
     CandidateModel,
     ElectionModel,
+    FeedbackModel,
     OtpSessionModel,
     VoteModel,
     VoterModel,
@@ -101,6 +103,24 @@ class SqlAlchemyVoterRepository(IVoterRepository):
         model = await self._session.get(VoterModel, voter_id)
         if model:
             model.has_voted = True
+
+    async def update(self, voter: Voter) -> Voter:
+        model = await self._session.get(VoterModel, voter.id)
+        if not model:
+            raise ValueError("Électeur introuvable")
+        model.email = voter.email.lower()
+        model.phone = voter.phone
+        model.last_name = voter.last_name
+        model.first_name = voter.first_name
+        model.is_active = voter.is_active
+        await self._session.flush()
+        return _to_voter(model)
+
+    async def delete(self, voter_id: int) -> None:
+        model = await self._session.get(VoterModel, voter_id)
+        if not model:
+            raise ValueError("Électeur introuvable")
+        await self._session.delete(model)
 
 
 class SqlAlchemyCandidateRepository(ICandidateRepository):
@@ -246,6 +266,9 @@ class SqlAlchemyVoteRepository(IVoteRepository):
         stmt = select(func.count()).select_from(VoteModel).where(VoteModel.election_id == election_id)
         return (await self._session.execute(stmt)).scalar_one()
 
+    async def delete_by_voter(self, voter_id: int) -> None:
+        await self._session.execute(delete(VoteModel).where(VoteModel.voter_id == voter_id))
+
 
 class SqlAlchemyOtpRepository(IOtpRepository):
     def __init__(self, session: AsyncSession) -> None:
@@ -297,3 +320,28 @@ class SqlAlchemyOtpRepository(IOtpRepository):
         sessions = (await self._session.execute(stmt)).scalars().all()
         for s in sessions:
             s.expires_at = datetime.utcnow()
+
+    async def delete_by_voter(self, voter_id: int) -> None:
+        await self._session.execute(delete(OtpSessionModel).where(OtpSessionModel.voter_id == voter_id))
+
+
+class SqlAlchemyFeedbackRepository(IFeedbackRepository):
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def create(self, feedback: Feedback) -> Feedback:
+        model = FeedbackModel(
+            email=feedback.email.lower(),
+            phone=feedback.phone,
+            message=feedback.message,
+            created_at=feedback.created_at or datetime.utcnow(),
+        )
+        self._session.add(model)
+        await self._session.flush()
+        return Feedback(
+            id=model.id,
+            email=model.email,
+            phone=model.phone,
+            message=model.message,
+            created_at=model.created_at,
+        )

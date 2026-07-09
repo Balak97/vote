@@ -37,6 +37,44 @@ class VoterResponse(BaseModel):
     is_active: bool
 
 
+class VoterUpdateRequest(BaseModel):
+    email: str | None = Field(default=None, max_length=255)
+    phone: str | None = Field(default=None, max_length=20)
+    first_name: str | None = Field(default=None, min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, min_length=1, max_length=100)
+    is_active: bool | None = None
+
+
+class BroadcastMessageRequest(BaseModel):
+    subject: str = Field(..., min_length=3, max_length=255)
+    message: str = Field(..., min_length=3, max_length=5000)
+
+
+class BroadcastMessageResponse(BaseModel):
+    sent: int
+    failed: int
+    message: str
+
+
+class FeedbackRequest(BaseModel):
+    email: str = Field(..., max_length=255)
+    phone: str = Field(..., max_length=20)
+    message: str = Field(..., min_length=3, max_length=5000)
+
+
+class FeedbackResponse(BaseModel):
+    message: str
+
+
+class RegistrationCheckRequest(BaseModel):
+    email: str = Field(..., max_length=255)
+
+
+class RegistrationCheckResponse(BaseModel):
+    registered: bool
+    message: str
+
+
 class ImportResultResponse(BaseModel):
     imported: int
     skipped: list[str]

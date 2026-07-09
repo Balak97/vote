@@ -4,11 +4,12 @@ from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 
 from app.config import settings
-from app.domain.entities import Candidate, Election, ElectionStatus, OtpSession, Vote, Voter
+from app.domain.entities import Candidate, Election, ElectionStatus, Feedback, OtpSession, Vote, Voter
 from app.domain.interfaces import (
     ICandidateRepository,
     IElectionRepository,
     IExcelImporter,
+    IFeedbackRepository,
     INotificationService,
     IOtpRepository,
     IVoteRepository,
@@ -425,3 +426,128 @@ class VoteService:
             },
             "elections": dashboards,
         }
+
+
+class VoterService:
+    def __init__(
+        self,
+        voter_repo: IVoterRepository,
+        vote_repo: IVoteRepository,
+        otp_repo: IOtpRepository,
+        notification: INotificationService,
+    ) -> None:
+        self._voter_repo = voter_repo
+        self._vote_repo = vote_repo
+        self._otp_repo = otp_repo
+        self._notification = notification
+
+    async def check_registration(self, email: str) -> tuple[bool, str]:
+        voter = await self._voter_repo.get_by_email(email.strip().lower())
+        if voter and voter.is_active:
+            return True, "Votre adresse email est bien inscrite sur la liste électorale."
+        return False, "Cette adresse email ne figure pas sur la liste électorale."
+
+    async def update_voter(
+        self,
+        voter_id: int,
+        *,
+        email: str | None = None,
+        phone: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        is_active: bool | None = None,
+    ) -> Voter:
+        voter = await self._voter_repo.get_by_id(voter_id)
+        if not voter:
+            raise ValueError("Électeur introuvable")
+
+        if email is not None:
+            normalized = email.strip().lower()
+            existing = await self._voter_repo.get_by_email(normalized)
+            if existing and existing.id != voter_id:
+                raise ValueError("Cet email est déjà utilisé")
+            voter.email = normalized
+        if phone is not None:
+            existing_phone = await self._voter_repo.get_by_phone(phone.strip())
+            if existing_phone and existing_phone.id != voter_id:
+                raise ValueError("Ce numéro de téléphone est déjà utilisé")
+            voter.phone = phone.strip()
+        if first_name is not None:
+            voter.first_name = first_name.strip()
+        if last_name is not None:
+            voter.last_name = last_name.strip()
+        if is_active is not None:
+            voter.is_active = is_active
+
+        return await self._voter_repo.update(voter)
+
+    async def delete_voter(self, voter_id: int) -> None:
+        voter = await self._voter_repo.get_by_id(voter_id)
+        if not voter:
+            raise ValueError("Électeur introuvable")
+        await self._vote_repo.delete_by_voter(voter_id)
+        await self._otp_repo.delete_by_voter(voter_id)
+        await self._voter_repo.delete(voter_id)
+
+    async def broadcast_message(self, subject: str, message: str) -> tuple[int, int]:
+        voters = await self._voter_repo.list_all()
+        recipients = [v.email for v in voters if v.is_active]
+        if not recipients:
+            raise ValueError("Aucun électeur actif à contacter")
+
+        sent = 0
+        failed = 0
+        full_body = (
+            f"{message.strip()}\n\n"
+            f"— {settings.app_name}"
+        )
+        for email in recipients:
+            try:
+                await self._notification.send_email(email, subject.strip(), full_body)
+                sent += 1
+            except (RuntimeError, NotImplementedError):
+                failed += 1
+        if sent == 0:
+            raise RuntimeError("Aucun email n'a pu être envoyé")
+        return sent, failed
+
+
+class FeedbackService:
+    def __init__(
+        self,
+        feedback_repo: IFeedbackRepository,
+        notification: INotificationService,
+    ) -> None:
+        self._feedback_repo = feedback_repo
+        self._notification = notification
+
+    async def submit(self, email: str, phone: str, message: str) -> Feedback:
+        feedback = Feedback(
+            id=None,
+            email=email.strip().lower(),
+            phone=phone.strip(),
+            message=message.strip(),
+            created_at=datetime.utcnow(),
+        )
+        created = await self._feedback_repo.create(feedback)
+
+        admin_email = (
+            settings.admin_notification_email
+            or settings.default_from_email
+            or settings.email_host_user
+        )
+        if admin_email:
+            try:
+                await self._notification.send_email(
+                    admin_email,
+                    f"{settings.app_name} — Nouvelle plainte / observation",
+                    (
+                        f"Email : {created.email}\n"
+                        f"Téléphone : {created.phone}\n\n"
+                        f"Message :\n{created.message}"
+                    ),
+                )
+            except (RuntimeError, NotImplementedError):
+                pass
+
+        return created

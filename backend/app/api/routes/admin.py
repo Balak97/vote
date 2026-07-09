@@ -10,9 +10,12 @@ from app.api.dependencies import (
     get_election_service,
     get_voter_import_service,
     get_voter_repo,
+    get_voter_service,
 )
 from app.api.schemas import (
     AdminLoginRequest,
+    BroadcastMessageRequest,
+    BroadcastMessageResponse,
     CandidateResponse,
     ElectionCreateRequest,
     ElectionResponse,
@@ -21,12 +24,13 @@ from app.api.schemas import (
     PublishResultsRequest,
     TokenResponse,
     VoterResponse,
+    VoterUpdateRequest,
 )
 from app.domain.entities import Candidate
 from app.domain.interfaces import IVoterRepository
 from app.infrastructure.database.session import get_session
 from app.infrastructure.storage.photo_storage import PhotoStorageService
-from app.services import AuthService, CandidateService, ElectionService, VoterImportService
+from app.services import AuthService, CandidateService, ElectionService, VoterImportService, VoterService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 photo_storage = PhotoStorageService()
@@ -88,6 +92,64 @@ async def list_voters(
 ) -> list[VoterResponse]:
     voters = await voter_repo.list_all()
     return [VoterResponse(**v.__dict__) for v in voters]
+
+
+@router.patch("/voters/{voter_id}", response_model=VoterResponse)
+async def update_voter(
+    voter_id: int,
+    body: VoterUpdateRequest,
+    _: Annotated[str, Depends(get_current_admin)],
+    voter_service: Annotated[VoterService, Depends(get_voter_service)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> VoterResponse:
+    try:
+        voter = await voter_service.update_voter(
+            voter_id,
+            email=body.email,
+            phone=body.phone,
+            first_name=body.first_name,
+            last_name=body.last_name,
+            is_active=body.is_active,
+        )
+        await session.commit()
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return VoterResponse(**voter.__dict__)
+
+
+@router.delete("/voters/{voter_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_voter(
+    voter_id: int,
+    _: Annotated[str, Depends(get_current_admin)],
+    voter_service: Annotated[VoterService, Depends(get_voter_service)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> None:
+    try:
+        await voter_service.delete_voter(voter_id)
+        await session.commit()
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/voters/broadcast", response_model=BroadcastMessageResponse)
+async def broadcast_message(
+    body: BroadcastMessageRequest,
+    _: Annotated[str, Depends(get_current_admin)],
+    voter_service: Annotated[VoterService, Depends(get_voter_service)],
+) -> BroadcastMessageResponse:
+    try:
+        sent, failed = await voter_service.broadcast_message(body.subject, body.message)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    summary = f"Message envoyé à {sent} électeur(s)."
+    if failed:
+        summary += f" {failed} envoi(s) ont échoué."
+    return BroadcastMessageResponse(sent=sent, failed=failed, message=summary)
 
 
 @router.post("/elections", response_model=ElectionResponse)
